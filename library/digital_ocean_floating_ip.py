@@ -126,9 +126,7 @@ class Response(object):
     @property
     def json(self):
         if not self.body:
-            if "body" in self.info:
-                return json.loads(self.info["body"])
-            return None
+            return json.loads(self.info["body"]) if "body" in self.info else None
         try:
             return json.loads(self.body)
         except ValueError:
