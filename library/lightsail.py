@@ -237,16 +237,8 @@ def create_instance(module, client, instance_name):
     wait_timeout = int(module.params.get('wait_timeout'))
     wait_max = time.time() + wait_timeout
 
-    if module.params.get('key_pair_name'):
-        key_pair_name = module.params.get('key_pair_name')
-    else:
-        key_pair_name = ''
-
-    if module.params.get('open_ports'):
-        open_ports = module.params.get('open_ports')
-    else:
-        open_ports = '[]'
-
+    key_pair_name = module.params.get('key_pair_name') or ''
+    open_ports = module.params.get('open_ports') or '[]'
     resp = None
     if inst is None:
         try:
@@ -282,23 +274,22 @@ def create_instance(module, client, instance_name):
 
         # Timed out
         if wait and not changed and wait_max <= time.time():
-            module.fail_json(msg="Wait for instance start timeout at %s" % time.asctime())
+            module.fail_json(msg=f"Wait for instance start timeout at {time.asctime()}")
 
         # Attempt to open ports
-        if open_ports:
-            if inst is not None:
-                try:
-                    for o in open_ports:
-                        resp = client.open_instance_public_ports(
-                            instanceName=instance_name,
-                            portInfo={
-                                'fromPort': o['from_port'],
-                                'toPort':   o['to_port'],
-                                'protocol': o['protocol']
-                            }
-                        )
-                except botocore.exceptions.ClientError as e:
-                    module.fail_json(msg='Error opening ports for instance {0}, error: {1}'.format(instance_name, e))
+        if open_ports and inst is not None:
+            try:
+                for o in open_ports:
+                    resp = client.open_instance_public_ports(
+                        instanceName=instance_name,
+                        portInfo={
+                            'fromPort': o['from_port'],
+                            'toPort':   o['to_port'],
+                            'protocol': o['protocol']
+                        }
+                    )
+            except botocore.exceptions.ClientError as e:
+                module.fail_json(msg='Error opening ports for instance {0}, error: {1}'.format(instance_name, e))
 
         changed = True
 
@@ -361,7 +352,7 @@ def delete_instance(module, client, instance_name):
 
     # Timed out
     if wait and not changed and wait_max <= time.time():
-        module.fail_json(msg="wait for instance delete timeout at %s" % time.asctime())
+        module.fail_json(msg=f"wait for instance delete timeout at {time.asctime()}")
 
     return (changed, inst)
 
@@ -490,7 +481,11 @@ def core(module):
         client = boto3_conn(module, conn_type='client', resource='lightsail',
                             region=region, endpoint=ec2_url, **aws_connect_kwargs)
     except (botocore.exceptions.ClientError, botocore.exceptions.ValidationError) as e:
-        module.fail_json(msg='Failed while connecting to the lightsail service: %s' % e, exception=traceback.format_exc())
+        module.fail_json(
+            msg=f'Failed while connecting to the lightsail service: {e}',
+            exception=traceback.format_exc(),
+        )
+
 
     changed = False
     state = module.params['state']
